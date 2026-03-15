@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>扫码器 · 底部按钮 · 序号记录</title>
+    <style>
+        /* 全局重置 & 字体 */
+        * {
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: #f0f4fa;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 8px;
+        }
+
+        /* 卡片 — 弹性列，占满手机高度，圆角，阴影 */
+        .card {
+            background: white;
+            width: 100%;
+            max-width: 600px;
+            border-radius: 36px;
+            box-shadow: 0 25px 45px rgba(0,20,50,0.15);
+            padding: 22px 20px 20px 20px;
+            display: flex;
+            flex-direction: column;
+            height: 98vh;           /* 接近全屏，留一点边缘 */
+            max-height: 98vh;
+            overflow: hidden;        /* 防止整体滚动，内部管理滚动 */
+            transition: all 0.2s;
+        }
+
+        /* 头部固定 */
+        h1 {
+            font-size: 2rem;
+            font-weight: 650;
+            margin: 0 0 4px 0;
+            color: #0a1a32;
+            letter-spacing: -0.02em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;          /* 禁止压缩 */
+        }
+        h1 span {
+            background: #e9efff;
+            color: #1d4ed8;
+            font-size: 0.9rem;
+            font-weight: 500;
+            padding: 5px 14px;
+            border-radius: 40px;
+            margin-left: 6px;
+            border: 1px solid #ccdfff;
+            white-space: nowrap;
+        }
+
+        .sub {
+            color: #2c3e5c;
+            margin-bottom: 16px;
+            font-size: 0.98rem;
+            border-left: 5px solid #2563eb;
+            padding-left: 16px;
+            background: #f8fafd;
+            border-radius: 0 16px 16px 0;
+            line-height: 1.4;
+            flex-shrink: 0;
+        }
+
+        /* 记录头部 (始终可见) */
+        .records-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 8px;
+            flex-shrink: 0;
+        }
+        .records-header h3 {
+            font-size: 1.45rem;
+            font-weight: 630;
+            color: #0b1e3a;
+        }
+        .badge {
+            background: #dbeafe;
+            color: #1d4ed8;
+            border-radius: 40px;
+            padding: 5px 18px;
+            font-size: 0.95rem;
+            font-weight: 550;
+            border: 1px solid #a9c5fe;
+        }
+        .clear-btn {
+            background: white;
+            border: 1.5px solid #bbcadd;
+            color: #2d4059;
+            font-size: 0.9rem;
+            padding: 6px 18px;
+            border-radius: 40px;
+            cursor: pointer;
+            transition: 0.12s;
+            font-weight: 500;
+            flex-shrink: 0;
+        }
+        .clear-btn:hover {
+            background: #ecf2fa;
+            border-color: #8ba0c0;
+            color: #0b1e3a;
+        }
+
+        /* 列表区域 — 弹性伸缩，可滚动 */
+        #list {
+            list-style: none;
+            padding: 4px 6px;
+            margin: 0 0 6px 0;
+            overflow-y: auto;
+            background: #f9fcff;
+            border: 1px solid #e6edf6;
+            border-radius: 24px;
+            flex: 1 1 auto;          /* 占据剩余空间 */
+            min-height: 140px;        /* 确保空状态也有高度 */
+        }
+
+        #list li {
+            background: white;
+            margin: 8px 10px;
+            padding: 14px 18px;
+            border-radius: 40px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+            border: 1px solid #e2ebf5;
+            font-size: 0.98rem;
+            word-break: break-all;
+            transition: 0.08s;
+        }
+        #list li a {
+            color: #1d4ed8;
+            text-decoration: none;
+            font-weight: 550;
+            display: inline-block;
+            width: 100%;
+        }
+        #list li a:hover {
+            text-decoration: underline;
+            color: #2563eb;
+        }
+        #list li:has(a) {
+            background: #edf5ff;
+            border-color: #adc8ff;
+        }
+
+        /* 视频容器 & 实时消息 — 均不伸缩，按自身高度 */
+        #video-container {
+            width: 100%;
+            border-radius: 28px;
+            overflow: hidden;
+            background: #0b1424;
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1), 0 15px 25px -8px rgba(0,0,0,0.5);
+            margin: 6px 0 8px 0;
+            position: relative;
+            aspect-ratio: 4/3;
+            display: none;            /* 默认隐藏 */
+            flex-shrink: 0;
+        }
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            background: #1a253b;
+        }
+        canvas {
+            display: none;
+        }
+        .info-message {
+            background: #e3f0ff;
+            color: #004e9e;
+            padding: 12px 20px;
+            border-radius: 50px;
+            font-size: 1rem;
+            margin: 4px 0 8px 0;
+            text-align: center;
+            border: 1px solid #b8d3ff;
+            font-weight: 480;
+            box-shadow: 0 2px 8px rgba(0,70,150,0.05);
+            flex-shrink: 0;
+            display: none;
+        }
+
+        /* 底部固定按钮区 — 始终在卡片底部，不滚动 */
+        .scan-footer {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-top: 10px;          /* 与上方内容拉开一点距离 */
+            flex-shrink: 0;             /* 禁止压缩 */
+            width: 100%;
+            gap: 6px;
+        }
+
+        .scan-btn {
+            background: #0f2b5c;
+            color: white;
+            border: none;
+            font-size: 1.8rem;         /* 稍大一点，方便点击 */
+            font-weight: 600;
+            padding: 18px 30px;
+            border-radius: 70px;
+            width: 90%;                 /* 宽度占满，但留一点边 */
+            max-width: 360px;
+            box-shadow: 0 12px 24px rgba(15,43,92,0.4);
+            cursor: pointer;
+            transition: 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            border: 1px solid rgba(255,255,255,0.2);
+            letter-spacing: 0.8px;
+            touch-action: manipulation; /* 避免双击缩放干扰 */
+        }
+        .scan-btn:hover {
+            background: #1e3f7a;
+            transform: scale(1.01);
+            box-shadow: 0 16px 28px rgba(30,64,175,0.5);
+        }
+        .scan-btn:active {
+            transform: scale(0.96);
+            background: #0a1f44;
+        }
+
+        .footer-note {
+            color: #5b6f8a;
+            font-size: 0.82rem;
+            text-align: center;
+            padding: 4px 0 2px 0;
+            border-top: 1px dashed #d0ddeb;
+            width: 100%;
+        }
+
+        /* 适配极小屏 */
+        @media (max-width: 420px) {
+            .card {
+                padding: 16px 14px 16px 14px;
+                border-radius: 30px;
+            }
+            h1 {
+                font-size: 1.7rem;
+            }
+            .scan-btn {
+                font-size: 1.5rem;
+                padding: 16px 20px;
+            }
+            #list li {
+                padding: 12px 14px;
+                margin: 6px 6px;
+            }
+        }
+    </style>
+    <!-- 使用 jsQR 解码库 1.4.0 -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+</head>
+<body>
+<div class="card">
+    <h1>📱 成哥扫码器 </h1>
+
+    <!-- 记录头部 + 列表 (中间可滚动) -->
+    <div class="records-header">
+        <h3>📋 扫描记录</h3>
+        <span class="badge" id="recordCount">0</span>
+        <button class="clear-btn" id="clearBtn">清空</button>
+    </div>
+    <ul id="list">
+        <li style="color:#8a9bb5; justify-content:center; display: flex; ">📭 暂无记录</li>
+    </ul>
+
+    <!-- 摄像头预览区域 (默认隐藏) -->
+    <div id="video-container">
+        <video id="video" playsinline></video>
+    </div>
+    <div id="liveMessage" class="info-message"></div>
+
+    <!-- 底部固定按钮区 (始终可见) -->
+    <div class="scan-footer">
+        <button class="scan-btn" id="scanBtn">🔎 开始扫码</button>
+        <div class="footer-note">
+            ✦ 点击按钮开启/关闭摄像头 ✦ 重复内容自动忽略 ✦
+        </div>
+    </div>
+
+    <!-- canvas 用于图像分析 (不可见) -->
+    <canvas id="canvas"></canvas>
+</div>
+
+<script>
+(function() {
+    // ---------- DOM 元素 ----------
+    const scanBtn = document.getElementById('scanBtn');
+    const videoContainer = document.getElementById('video-container');
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const liveMessage = document.getElementById('liveMessage');
+    const listEl = document.getElementById('list');
+    const recordCountSpan = document.getElementById('recordCount');
+    const clearBtn = document.getElementById('clearBtn');
+
+    // ---------- 状态 ----------
+    let stream = null;
+    let scanning = false;          // 是否正在识别循环中
+    let rafId = null;
+    let records = [];              // 存储顺序内容
+    let recordsSet = new Set();    // 去重用
+
+    const canvasCtx = canvas.getContext('2d');
+
+    // ---------- 辅助函数 ----------
+    function isUrl(str) {
+        return /^https?:\/\//i.test(str);
+    }
+
+    // 渲染列表 (带序号)
+    function renderRecords() {
+        recordCountSpan.textContent = records.length;
+
+        if (records.length === 0) {
+            listEl.innerHTML = '<li style="color:#8a9bb5; justify-content:center; display: flex; ">📭 暂无记录</li>';
+            return;
+        }
+
+        const fragment = document.createDocumentFragment();
+        records.forEach((text, index) => {
+            const li = document.createElement('li');
+            const numberedText = `${index + 1}. ${text}`;   // 序号从1开始
+
+            if (isUrl(text)) {
+                const a = document.createElement('a');
+                a.href = text;
+                a.target = '_blank';
+                a.rel = 'noopener noreferrer';
+                a.textContent = numberedText;
+                li.appendChild(a);
+            } else {
+                li.textContent = numberedText;
+            }
+            fragment.appendChild(li);
+        });
+        listEl.innerHTML = '';
+        listEl.appendChild(fragment);
+    }
+
+    // 完全停止扫描 (关闭摄像头、停止循环、隐藏UI)
+    function stopScan() {
+        if (rafId) {
+            cancelAnimationFrame(rafId);
+            rafId = null;
+        }
+        scanning = false;
+
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            stream = null;
+            video.srcObject = null;
+        }
+
+        // 隐藏视频容器和消息
+        videoContainer.style.display = 'none';
+        liveMessage.style.display = 'none';
+    }
+
+    // 处理扫描结果
+    function handleResult(rawData) {
+        stopScan();   // 扫到即关闭摄像头
+
+        const trimmed = (rawData || '').trim();
+        if (trimmed === '') {
+            alert('⚠️ 二维码内容为空，已忽略');
+            return;
+        }
+
+        if (recordsSet.has(trimmed)) {
+            alert('⏸️ 重复扫码，未记录:\n' + trimmed);
+            return;
+        }
+
+        // 添加新记录
+        records.push(trimmed);
+        recordsSet.add(trimmed);
+        renderRecords();
+
+        // 短暂提示记录成功
+        liveMessage.style.display = 'block';
+        liveMessage.textContent = '✅ 已记录: ' + (trimmed.length > 35 ? trimmed.slice(0,35)+'…' : trimmed);
+        liveMessage.style.background = '#dcfce7';
+        liveMessage.style.color = '#166534';
+        setTimeout(() => {
+            if (liveMessage) liveMessage.style.display = 'none';
+        }, 2600);
+    }
+
+    // ---------- 扫描帧循环 ----------
+    function scanFrame() {
+        if (!scanning) return;
+
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+            const vidWidth = video.videoWidth;
+            const vidHeight = video.videoHeight;
+
+            if (vidWidth > 0 && vidHeight > 0) {
+                // 限制最大分析尺寸，提高性能
+                let targetWidth = vidWidth;
+                let targetHeight = vidHeight;
+                const MAX_DIM = 1280;
+                if (targetWidth > MAX_DIM) {
+                    targetHeight = Math.floor(targetHeight * MAX_DIM / targetWidth);
+                    targetWidth = MAX_DIM;
+                }
+                if (targetHeight > MAX_DIM) {
+                    targetWidth = Math.floor(targetWidth * MAX_DIM / targetHeight);
+                    targetHeight = MAX_DIM;
+                }
+
+                if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+                    canvas.width = targetWidth;
+                    canvas.height = targetHeight;
+                }
+
+                canvasCtx.drawImage(video, 0, 0, vidWidth, vidHeight, 0, 0, targetWidth, targetHeight);
+                const imageData = canvasCtx.getImageData(0, 0, targetWidth, targetHeight);
+
+                const code = jsQR(imageData.data, targetWidth, targetHeight, {
+                    inversionAttempts: 'attemptBoth'
+                });
+
+                if (code) {
+                    console.log('二维码解码成功:', code.data);
+                    handleResult(code.data);
+                    return;  // handleResult 中调用了 stopScan，scanning变为false
+                }
+            }
+        }
+
+        if (scanning) {
+            rafId = requestAnimationFrame(scanFrame);
+        }
+    }
+
+    // ---------- 启动扫描 (或关闭) 改进：单击按钮切换摄像头 ----------
+    async function toggleScan() {
+        // 如果正在扫描中，则关闭摄像头并返回
+        if (scanning) {
+            stopScan();
+            // 可以简单提示已关闭（不干扰用户）
+            liveMessage.style.display = 'block';
+            liveMessage.textContent = '⏹️ 摄像头已关闭';
+            liveMessage.style.background = '#f1f5f9';
+            liveMessage.style.color = '#334155';
+            setTimeout(() => {
+                if (liveMessage) liveMessage.style.display = 'none';
+            }, 1500);
+            return;
+        }
+
+        // 否则启动扫描 (先确保一切关闭干净，再开启)
+        stopScan();  // 二次确保
+
+        // 显示容器和提示
+        videoContainer.style.display = 'block';
+        liveMessage.style.display = 'block';
+        liveMessage.textContent = '⏳ 请求摄像头...';
+        liveMessage.style.background = '#fff4d9';
+        liveMessage.style.color = '#7a5d00';
+
+        try {
+            // 请求后置摄像头优先
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: { ideal: 'environment' },
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 }
+                }
+            });
+
+            video.srcObject = stream;
+            await video.play();
+
+            liveMessage.textContent = '🔍 摄像头已开启，对准二维码 (识别中...)';
+            liveMessage.style.background = '#d4e6ff';
+            liveMessage.style.color = '#004080';
+
+            scanning = true;
+            if (rafId) cancelAnimationFrame(rafId);
+            rafId = requestAnimationFrame(scanFrame);
+
+        } catch (err) {
+            console.error('摄像头错误:', err);
+            let errorMsg = err.message || '';
+            if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                errorMsg = '摄像头权限被拒绝。请在浏览器设置中允许。';
+            } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+                errorMsg = '未检测到摄像头设备。';
+            } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+                errorMsg = '摄像头正被其他应用占用，请关闭后重试。';
+            } else {
+                errorMsg = '无法访问摄像头: ' + (errorMsg || '未知错误');
+            }
+            liveMessage.style.background = '#ffe3e3';
+            liveMessage.style.color = '#b91c1c';
+            liveMessage.textContent = '❌ ' + errorMsg;
+            videoContainer.style.display = 'none';  // 隐藏视频框
+            stopScan();  // 清理残余
+        }
+    }
+
+    // ---------- 事件绑定 ----------
+    scanBtn.addEventListener('click', toggleScan);
+
+    clearBtn.addEventListener('click', () => {
+        if (records.length === 0) {
+            alert('记录已经是空的');
+            return;
+        }
+        records = [];
+        recordsSet.clear();
+        renderRecords();
+        liveMessage.style.display = 'none';  // 可能隐藏消息
+    });
+
+    // 页面关闭前释放资源
+    window.addEventListener('beforeunload', () => {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+        }
+        if (rafId) cancelAnimationFrame(rafId);
+    });
+
+    // 初始化空列表
+    renderRecords();
+})();
+</script>
+</body>
+</html>
